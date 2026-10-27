@@ -45,4 +45,26 @@ public final class Graph {
         if (i < 0) throw new IllegalArgumentException("Unknown vertex: " + name);
         return i;
     }
+
+     // ---- read-only access ----
+    public int vertexCount()            { return vertices.size(); }
+    public int edgeCount()              { return edges.size(); }
+    public Vertex vertex(int id)        { return vertices.get(id); }
+    public Edge edge(int id)            { return edges.get(id); }
+    public List<Vertex> vertices()      { return Collections.unmodifiableList(vertices); }
+    public List<Edge> outgoing(int u)   { return Collections.unmodifiableList(adjacency.get(u)); }
+    
+// ---- adjacency matrix view ----
+    public double[][] toAdjacencyMatrix(){
+        int n = vertexCount();
+        double[][] m = new double[n][n];
+        for (double[] row : m) Arrays.fill(row, Double.POSITIVE_INFINITY);
+        for (int i =0; i<n; i++){
+            m[i][i] = 0;
+        }
+        for (Edge e : edges){
+            m[e.from()][e.to()] = Math.min(m[e.from()][e.to()], e.distanceKm());
+        }
+        return m;
+    }
 }
