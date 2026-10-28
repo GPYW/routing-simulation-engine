@@ -4,7 +4,9 @@ import com.uom.engine.discrete.Graph;
 import com.uom.engine.discrete.RoadClass;
 import com.uom.engine.discrete.Edge;
 import com.uom.engine.discrete.PathFinder;
+import com.uom.engine.discrete.Geo;
 
+import java.util.Random;
 import java.util.BitSet;
 import java.util.Arrays;
 
@@ -54,6 +56,48 @@ public final class Main {
         noColombo.clear(0);
         s = PathFinder.dijkstra(g, 2, 1, km, noColombo);
         System.out.println("Kandy -> Gampaha avoiding Colombo: found=" + s.found() + ", cost " + s.cost());
+
+        // ---- Step 2.3: A* vs Dijkstra ----
+        double[] xyz = Geo.toCartesian(g.vertices());
+        PathFinder.Search a = PathFinder.aStar(g, 0, 2, km, v -> Geo.chordKm(xyz, v, 2), null);
+        System.out.println("\nA* Colombo -> Kandy: cost " + a.cost() + ", settled " + a.settled());
+
+        Graph grid = buildGrid(30);
+        double[] gxyz = Geo.toCartesian(grid.vertices());
+        compare(grid, gxyz, "N15_0", "N15_29", km);
+        compare(grid, gxyz, "N0_0",  "N10_12", km);
+        compare(grid, gxyz, "N0_0",  "N29_29", km);
+
+        int from = grid.indexOf("N0_0"), to = grid.indexOf("N29_29");
+        PathFinder.Search bad = PathFinder.aStar(grid, from, to, km, v -> 5 * Geo.chordKm(gxyz, v, to), null);
+        System.out.printf("5x heuristic N0_0 -> N29_29: cost %.4f, settled %d%n", bad.cost(), bad.settled());
+    }
+
+     private static Graph buildGrid(int size) {
+        Graph grid = new Graph();
+        Random rnd = new Random(42);
+        for (int r = 0; r < size; r++)
+            for (int c = 0; c < size; c++)
+                grid.addVertex("N" + r + "_" + c, 6.0 + r * 0.1, 79.8 + c * 0.1, "X");
+        for (int r = 0; r < size; r++)
+            for (int c = 0; c < size; c++) {
+                if (c + 1 < size) gridRoad(grid, rnd, "N" + r + "_" + c, "N" + r + "_" + (c + 1));
+                if (r + 1 < size) gridRoad(grid, rnd, "N" + r + "_" + c, "N" + (r + 1) + "_" + c);
+            }
+        return grid;
+    }
+
+    private static void gridRoad(Graph g, Random rnd, String a, String b) {
+        double straight = Geo.haversineKm(g.vertex(g.indexOf(a)), g.vertex(g.indexOf(b)));
+        g.addRoad(a, b, straight * (1.05 + rnd.nextDouble() * 0.35), RoadClass.HIGHWAY);
+    }
+
+    private static void compare(Graph g, double[] xyz, String fromName, String toName, PathFinder.EdgeWeight w) {
+        int s = g.indexOf(fromName), t = g.indexOf(toName);
+        PathFinder.Search d = PathFinder.dijkstra(g, s, t, w, null);
+        PathFinder.Search a = PathFinder.aStar(g, s, t, w, v -> Geo.chordKm(xyz, v, t), null);
+        System.out.printf("%-6s -> %-6s  Dijkstra %.4f km, settled %3d | A* %.4f km, settled %3d%n",
+                fromName, toName, d.cost(), d.settled(), a.cost(), a.settled());
     }
 
     private static void notYet(String mode, int step) {
