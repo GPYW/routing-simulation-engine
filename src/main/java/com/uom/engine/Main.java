@@ -76,45 +76,6 @@ public final class Main {
         PathFinder.Search bad = PathFinder.aStar(grid, from, to, km, v -> 5 * Geo.chordKm(gxyz, v, to), null);
         System.out.printf("5x heuristic N0_0 -> N29_29: cost %.4f, settled %d%n", bad.cost(), bad.settled());
 
-        // // ---- Step 3.2: clusters as a partition ----
-        // AccessPolicy policy = new AccessPolicy(g);
-        // System.out.println("\nClusters: " + policy.clusterNames());
-        // BitSet west = policy.cluster("WESTERN"), central = policy.cluster("CENTRAL");
-        // System.out.println("WESTERN = " + west + "   CENTRAL = " + central + "   V = " + policy.universe());
-        // System.out.println("V \\ WESTERN = " + policy.complement(west));
-        // System.out.println("WESTERN ∩ CENTRAL empty? " + !west.intersects(central));
-        // System.out.println("Partition? " + policy.isPartition());
-
-        // west.clear(0);   // edit MY copy only
-        // System.out.println("After editing my copy, stored WESTERN = " + policy.cluster("WESTERN"));
-        // try {
-        //     policy.cluster("SOUTHERN");
-        // } catch (IllegalArgumentException e) {
-        //     System.out.println("Error: " + e.getMessage());
-        // }
-        // // ---- Step 3.3: the allowed set drives the search ----
-        // int gampaha = g.indexOf("Gampaha");
-        // BitSet all       = policy.allowedSet(List.of(), List.of());
-        // BitSet westOnly  = policy.allowedSet(List.of("WESTERN"), List.of());
-        // BitSet avoidGam  = policy.allowedSet(List.of("WESTERN", "CENTRAL"), List.of(gampaha));
-        // BitSet avoidGam2 = policy.allowedSet(null, List.of(gampaha));
-
-        // System.out.println("\nNo restriction:                 " + all);
-        // System.out.println("WESTERN only:                   " + westOnly);
-        // System.out.println("WESTERN ∪ CENTRAL \\ {Gampaha}:  " + avoidGam);
-        // System.out.println("Everything \\ {Gampaha}:         " + avoidGam2);
-
-        // for (BitSet allowed : List.of(all, westOnly, avoidGam)) {
-        //     PathFinder.Search r = PathFinder.dijkstra(g, 0, 2, km, allowed);
-        //     System.out.println("Colombo -> Kandy within " + allowed + ": found=" + r.found() + ", cost " + r.cost());
-        // }
-
-        // // ---- Step 3.4: validation ----
-        // System.out.println();
-        // route(g, policy, km, "Colombo", "Kandy",   List.of(),           List.of());
-        // route(g, policy, km, "Colombo", "Kandy",   List.of("WESTERN"),  List.of());
-        // route(g, policy, km, "Kandy",   "Gampaha", List.of(),           List.of("Kandy"));
-        // route(g, policy, km, "Colombo", "Kandy",   List.of("SOUTHERN"), List.of());
                 // ---- Step 4.1: numerical integration ----
         DoubleUnaryOperator traffic = t -> -t * t + 4 * t + 2;     // the starter-code curve
         System.out.printf("%nExact 56/3          = %.10f%n", 56.0 / 3);
@@ -135,6 +96,23 @@ public final class Main {
                     eS, Double.isNaN(prevS) ? "" : String.format(" (÷%.1f)", prevS / eS));
             prevT = eT;
             prevS = eS;
+        }
+
+        // ---- Step 4.2: root finding ----
+        System.out.println("\nsqrt(2), plain Newton:  "
+                + NumericalSolver.newtonRaphson(t -> t * t - 2, t -> 2 * t, 1, 1e-15, 50));
+
+        DoubleUnaryOperator cbrt  = t -> Math.cbrt(t - 1);
+        DoubleUnaryOperator dcbrt = t -> 1 / (3 * Math.cbrt((t - 1) * (t - 1)));
+        System.out.println("cbrt(x-1), plain:       " + NumericalSolver.newtonRaphson(cbrt, dcbrt, 1.5, 1e-12, 50));
+        System.out.println("cbrt(x-1), safeguarded: " + NumericalSolver.safeguardedNewton(cbrt, dcbrt, 0, 3, 1e-12, 200));
+        System.out.println("sqrt(2), safeguarded:   "
+                + NumericalSolver.safeguardedNewton(t -> t * t - 2, t -> 2 * t, 0, 2, 1e-15, 50));
+        System.out.println("x^2+1, plain:           " + NumericalSolver.newtonRaphson(t -> t * t + 1, t -> 2 * t, 0, 1e-12, 50));
+        try {
+            NumericalSolver.safeguardedNewton(t -> t * t + 1, t -> 2 * t, -1, 1, 1e-12, 50);
+        } catch (IllegalArgumentException e) {
+            System.out.println("x^2+1, safeguarded:     " + e.getMessage());
         }
     }
 
