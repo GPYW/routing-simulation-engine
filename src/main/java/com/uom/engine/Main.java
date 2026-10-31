@@ -6,7 +6,9 @@ import com.uom.engine.discrete.Edge;
 import com.uom.engine.discrete.PathFinder;
 import com.uom.engine.discrete.Geo;
 import com.uom.engine.discrete.AccessPolicy;
+import com.uom.engine.numerical.NumericalSolver;
 
+import java.util.function.DoubleUnaryOperator;
 import java.util.Random;
 import java.util.BitSet;
 import java.util.Arrays;
@@ -74,45 +76,66 @@ public final class Main {
         PathFinder.Search bad = PathFinder.aStar(grid, from, to, km, v -> 5 * Geo.chordKm(gxyz, v, to), null);
         System.out.printf("5x heuristic N0_0 -> N29_29: cost %.4f, settled %d%n", bad.cost(), bad.settled());
 
-        // ---- Step 3.2: clusters as a partition ----
-        AccessPolicy policy = new AccessPolicy(g);
-        System.out.println("\nClusters: " + policy.clusterNames());
-        BitSet west = policy.cluster("WESTERN"), central = policy.cluster("CENTRAL");
-        System.out.println("WESTERN = " + west + "   CENTRAL = " + central + "   V = " + policy.universe());
-        System.out.println("V \\ WESTERN = " + policy.complement(west));
-        System.out.println("WESTERN ∩ CENTRAL empty? " + !west.intersects(central));
-        System.out.println("Partition? " + policy.isPartition());
+        // // ---- Step 3.2: clusters as a partition ----
+        // AccessPolicy policy = new AccessPolicy(g);
+        // System.out.println("\nClusters: " + policy.clusterNames());
+        // BitSet west = policy.cluster("WESTERN"), central = policy.cluster("CENTRAL");
+        // System.out.println("WESTERN = " + west + "   CENTRAL = " + central + "   V = " + policy.universe());
+        // System.out.println("V \\ WESTERN = " + policy.complement(west));
+        // System.out.println("WESTERN ∩ CENTRAL empty? " + !west.intersects(central));
+        // System.out.println("Partition? " + policy.isPartition());
 
-        west.clear(0);   // edit MY copy only
-        System.out.println("After editing my copy, stored WESTERN = " + policy.cluster("WESTERN"));
-        try {
-            policy.cluster("SOUTHERN");
-        } catch (IllegalArgumentException e) {
-            System.out.println("Error: " + e.getMessage());
+        // west.clear(0);   // edit MY copy only
+        // System.out.println("After editing my copy, stored WESTERN = " + policy.cluster("WESTERN"));
+        // try {
+        //     policy.cluster("SOUTHERN");
+        // } catch (IllegalArgumentException e) {
+        //     System.out.println("Error: " + e.getMessage());
+        // }
+        // // ---- Step 3.3: the allowed set drives the search ----
+        // int gampaha = g.indexOf("Gampaha");
+        // BitSet all       = policy.allowedSet(List.of(), List.of());
+        // BitSet westOnly  = policy.allowedSet(List.of("WESTERN"), List.of());
+        // BitSet avoidGam  = policy.allowedSet(List.of("WESTERN", "CENTRAL"), List.of(gampaha));
+        // BitSet avoidGam2 = policy.allowedSet(null, List.of(gampaha));
+
+        // System.out.println("\nNo restriction:                 " + all);
+        // System.out.println("WESTERN only:                   " + westOnly);
+        // System.out.println("WESTERN ∪ CENTRAL \\ {Gampaha}:  " + avoidGam);
+        // System.out.println("Everything \\ {Gampaha}:         " + avoidGam2);
+
+        // for (BitSet allowed : List.of(all, westOnly, avoidGam)) {
+        //     PathFinder.Search r = PathFinder.dijkstra(g, 0, 2, km, allowed);
+        //     System.out.println("Colombo -> Kandy within " + allowed + ": found=" + r.found() + ", cost " + r.cost());
+        // }
+
+        // // ---- Step 3.4: validation ----
+        // System.out.println();
+        // route(g, policy, km, "Colombo", "Kandy",   List.of(),           List.of());
+        // route(g, policy, km, "Colombo", "Kandy",   List.of("WESTERN"),  List.of());
+        // route(g, policy, km, "Kandy",   "Gampaha", List.of(),           List.of("Kandy"));
+        // route(g, policy, km, "Colombo", "Kandy",   List.of("SOUTHERN"), List.of());
+                // ---- Step 4.1: numerical integration ----
+        DoubleUnaryOperator traffic = t -> -t * t + 4 * t + 2;     // the starter-code curve
+        System.out.printf("%nExact 56/3          = %.10f%n", 56.0 / 3);
+        for (int n : new int[]{2, 4, 100}) {
+            System.out.printf("n=%3d  Simpson = %.10f   Trapezoid = %.10f%n", n,
+                    NumericalSolver.simpson(traffic, 0, 4, n), NumericalSolver.trapezoid(traffic, 0, 4, n));
         }
-        // ---- Step 3.3: the allowed set drives the search ----
-        int gampaha = g.indexOf("Gampaha");
-        BitSet all       = policy.allowedSet(List.of(), List.of());
-        BitSet westOnly  = policy.allowedSet(List.of("WESTERN"), List.of());
-        BitSet avoidGam  = policy.allowedSet(List.of("WESTERN", "CENTRAL"), List.of(gampaha));
-        BitSet avoidGam2 = policy.allowedSet(null, List.of(gampaha));
+        System.out.printf("Cubic x^3-2x+1 on [0,2], n=2: Simpson = %.10f (exact 2)%n",
+                NumericalSolver.simpson(t -> t * t * t - 2 * t + 1, 0, 2, 2));
 
-        System.out.println("\nNo restriction:                 " + all);
-        System.out.println("WESTERN only:                   " + westOnly);
-        System.out.println("WESTERN ∪ CENTRAL \\ {Gampaha}:  " + avoidGam);
-        System.out.println("Everything \\ {Gampaha}:         " + avoidGam2);
-
-        for (BitSet allowed : List.of(all, westOnly, avoidGam)) {
-            PathFinder.Search r = PathFinder.dijkstra(g, 0, 2, km, allowed);
-            System.out.println("Colombo -> Kandy within " + allowed + ": found=" + r.found() + ", cost " + r.cost());
+        System.out.println("sin x on [0, pi] (exact 2):");
+        double prevT = Double.NaN, prevS = Double.NaN;
+        for (int n = 4; n <= 64; n *= 2) {
+            double eT = Math.abs(NumericalSolver.trapezoid(Math::sin, 0, Math.PI, n) - 2);
+            double eS = Math.abs(NumericalSolver.simpson(Math::sin, 0, Math.PI, n) - 2);
+            System.out.printf("  n=%2d  trapezoid error %.2e%s   Simpson error %.2e%s%n", n,
+                    eT, Double.isNaN(prevT) ? "         " : String.format(" (÷%.1f)", prevT / eT),
+                    eS, Double.isNaN(prevS) ? "" : String.format(" (÷%.1f)", prevS / eS));
+            prevT = eT;
+            prevS = eS;
         }
-
-        // ---- Step 3.4: validation ----
-        System.out.println();
-        route(g, policy, km, "Colombo", "Kandy",   List.of(),           List.of());
-        route(g, policy, km, "Colombo", "Kandy",   List.of("WESTERN"),  List.of());
-        route(g, policy, km, "Kandy",   "Gampaha", List.of(),           List.of("Kandy"));
-        route(g, policy, km, "Colombo", "Kandy",   List.of("SOUTHERN"), List.of());
     }
 
      private static Graph buildGrid(int size) {
