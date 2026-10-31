@@ -73,19 +73,22 @@ public final class Main {
         PathFinder.Search bad = PathFinder.aStar(grid, from, to, km, v -> 5 * Geo.chordKm(gxyz, v, to), null);
         System.out.printf("5x heuristic N0_0 -> N29_29: cost %.4f, settled %d%n", bad.cost(), bad.settled());
 
-        // ---- Step 3.1: sets as BitSets ----
-        BitSet V = new BitSet(); V.set(0, 6);                  // universe {0..5}
-        BitSet A = new BitSet(); A.set(0); A.set(1); A.set(2); // {0,1,2}
-        BitSet B = new BitSet(); B.set(2); B.set(3);           // {2,3}
+        // ---- Step 3.2: clusters as a partition ----
+        AccessPolicy policy = new AccessPolicy(g);
+        System.out.println("\nClusters: " + policy.clusterNames());
+        BitSet west = policy.cluster("WESTERN"), central = policy.cluster("CENTRAL");
+        System.out.println("WESTERN = " + west + "   CENTRAL = " + central + "   V = " + policy.universe());
+        System.out.println("V \\ WESTERN = " + policy.complement(west));
+        System.out.println("WESTERN ∩ CENTRAL empty? " + !west.intersects(central));
+        System.out.println("Partition? " + policy.isPartition());
 
-        System.out.println("\nA = " + A + "  B = " + B + "  V = " + V);
-        System.out.println("A ∪ B = " + AccessPolicy.union(A, B));
-        System.out.println("A ∩ B = " + AccessPolicy.intersection(A, B));
-        System.out.println("A \\ B = " + AccessPolicy.difference(A, B));
-        System.out.println("V \\ A = " + AccessPolicy.difference(V, A));
-        System.out.println("2 ∈ A? " + A.get(2) + "   4 ∈ A? " + A.get(4));
-        System.out.println("|A| = " + A.cardinality() + "   A and B overlap? " + A.intersects(B));
-        System.out.println("A unchanged after all that? " + A);
+        west.clear(0);   // edit MY copy only
+        System.out.println("After editing my copy, stored WESTERN = " + policy.cluster("WESTERN"));
+        try {
+            policy.cluster("SOUTHERN");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
     }
 
      private static Graph buildGrid(int size) {
