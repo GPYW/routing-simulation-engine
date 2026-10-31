@@ -5,6 +5,7 @@ import com.uom.engine.discrete.RoadClass;
 import com.uom.engine.discrete.Edge;
 import com.uom.engine.discrete.PathFinder;
 import com.uom.engine.discrete.Geo;
+import com.uom.engine.discrete.AccessPolicy;
 
 import java.util.Random;
 import java.util.BitSet;
@@ -71,6 +72,20 @@ public final class Main {
         int from = grid.indexOf("N0_0"), to = grid.indexOf("N29_29");
         PathFinder.Search bad = PathFinder.aStar(grid, from, to, km, v -> 5 * Geo.chordKm(gxyz, v, to), null);
         System.out.printf("5x heuristic N0_0 -> N29_29: cost %.4f, settled %d%n", bad.cost(), bad.settled());
+
+        // ---- Step 3.1: sets as BitSets ----
+        BitSet V = new BitSet(); V.set(0, 6);                  // universe {0..5}
+        BitSet A = new BitSet(); A.set(0); A.set(1); A.set(2); // {0,1,2}
+        BitSet B = new BitSet(); B.set(2); B.set(3);           // {2,3}
+
+        System.out.println("\nA = " + A + "  B = " + B + "  V = " + V);
+        System.out.println("A ∪ B = " + AccessPolicy.union(A, B));
+        System.out.println("A ∩ B = " + AccessPolicy.intersection(A, B));
+        System.out.println("A \\ B = " + AccessPolicy.difference(A, B));
+        System.out.println("V \\ A = " + AccessPolicy.difference(V, A));
+        System.out.println("2 ∈ A? " + A.get(2) + "   4 ∈ A? " + A.get(4));
+        System.out.println("|A| = " + A.cardinality() + "   A and B overlap? " + A.intersects(B));
+        System.out.println("A unchanged after all that? " + A);
     }
 
      private static Graph buildGrid(int size) {
