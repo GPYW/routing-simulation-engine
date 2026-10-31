@@ -52,6 +52,29 @@ public final class AccessPolicy {
         return seen.cardinality() == universeSize;  // (2)
     }
 
-    // 3.3 adds: allowedSet()
-    // 3.4 adds: validate() and AccessDeniedException
+    public BitSet allowedSet(Collection<String> allowedClusters, Collection<Integer> blocked) {
+        BitSet allowed;
+        if (allowedClusters == null || allowedClusters.isEmpty()) {
+            allowed = universe();
+        } else {
+            allowed = new BitSet(universeSize);
+            for (String c : allowedClusters) allowed.or(cluster(c));   // ⋃ clusters
+        }
+        if (blocked != null) for (int b : blocked) allowed.clear(b);    // \ blocked
+        return allowed;
+    }
+    /** Validation layer: origin and destination must both be members of the allowed set. */
+    public void validate(BitSet allowed, int origin, int destination, Graph g) {
+        if (!allowed.get(origin)) {
+            throw new AccessDeniedException("Origin " + g.vertex(origin).name() + " is outside the allowed node set");
+        }
+        if (!allowed.get(destination)) {
+            throw new AccessDeniedException("Destination " + g.vertex(destination).name() + " is outside the allowed node set");
+        }
+    }
+
+    /** Thrown when a request asks for a node it is not allowed to use. The API maps it to HTTP 403. */
+    public static final class AccessDeniedException extends IllegalArgumentException {
+        public AccessDeniedException(String message) { super(message); }
+    }
 }

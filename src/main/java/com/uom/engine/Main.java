@@ -10,6 +10,7 @@ import com.uom.engine.discrete.AccessPolicy;
 import java.util.Random;
 import java.util.BitSet;
 import java.util.Arrays;
+import java.util.List;
 
 public final class Main {
     public static void main(String[] args) throws Exception {
@@ -89,6 +90,29 @@ public final class Main {
         } catch (IllegalArgumentException e) {
             System.out.println("Error: " + e.getMessage());
         }
+        // ---- Step 3.3: the allowed set drives the search ----
+        int gampaha = g.indexOf("Gampaha");
+        BitSet all       = policy.allowedSet(List.of(), List.of());
+        BitSet westOnly  = policy.allowedSet(List.of("WESTERN"), List.of());
+        BitSet avoidGam  = policy.allowedSet(List.of("WESTERN", "CENTRAL"), List.of(gampaha));
+        BitSet avoidGam2 = policy.allowedSet(null, List.of(gampaha));
+
+        System.out.println("\nNo restriction:                 " + all);
+        System.out.println("WESTERN only:                   " + westOnly);
+        System.out.println("WESTERN ∪ CENTRAL \\ {Gampaha}:  " + avoidGam);
+        System.out.println("Everything \\ {Gampaha}:         " + avoidGam2);
+
+        for (BitSet allowed : List.of(all, westOnly, avoidGam)) {
+            PathFinder.Search r = PathFinder.dijkstra(g, 0, 2, km, allowed);
+            System.out.println("Colombo -> Kandy within " + allowed + ": found=" + r.found() + ", cost " + r.cost());
+        }
+
+        // ---- Step 3.4: validation ----
+        System.out.println();
+        route(g, policy, km, "Colombo", "Kandy",   List.of(),           List.of());
+        route(g, policy, km, "Colombo", "Kandy",   List.of("WESTERN"),  List.of());
+        route(g, policy, km, "Kandy",   "Gampaha", List.of(),           List.of("Kandy"));
+        route(g, policy, km, "Colombo", "Kandy",   List.of("SOUTHERN"), List.of());
     }
 
      private static Graph buildGrid(int size) {
@@ -116,6 +140,26 @@ public final class Main {
         PathFinder.Search a = PathFinder.aStar(g, s, t, w, v -> Geo.chordKm(xyz, v, t), null);
         System.out.printf("%-6s -> %-6s  Dijkstra %.4f km, settled %3d | A* %.4f km, settled %3d%n",
                 fromName, toName, d.cost(), d.settled(), a.cost(), a.settled());
+    }
+
+    /** Runs one query through all of Step 3: allowed set -> validation -> search. */
+    private static void route(Graph g, AccessPolicy policy, PathFinder.EdgeWeight w,
+                              String from, String to, List<String> clusters, List<String> avoid) {
+        String label = from + " -> " + to + " clusters=" + clusters + " avoid=" + avoid + ": ";
+        try {
+            int s = g.indexOf(from), t = g.indexOf(to);
+            List<Integer> blocked = new java.util.ArrayList<>();
+            for (String name : avoid) blocked.add(g.indexOf(name));
+
+            BitSet allowed = policy.allowedSet(clusters, blocked);
+            policy.validate(allowed, s, t, g);
+            PathFinder.Search r = PathFinder.dijkstra(g, s, t, w, allowed);
+            System.out.println(label + "cost " + r.cost());
+        } catch (AccessPolicy.AccessDeniedException e) {      // specific first
+            System.out.println(label + "403 DENIED - " + e.getMessage());
+        } catch (IllegalArgumentException e) {                // general second
+            System.out.println(label + "400 BAD REQUEST - " + e.getMessage());
+        }
     }
 
     private static void notYet(String mode, int step) {
