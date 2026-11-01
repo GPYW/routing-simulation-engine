@@ -10,6 +10,8 @@ import com.uom.engine.numerical.NumericalSolver;
 import com.uom.engine.numerical.ErrorAnalysis;
 import com.uom.engine.numerical.CostFunctions;
 import com.uom.engine.numerical.MarketConditions;
+import com.uom.engine.model.NetworkFactory;
+import com.uom.engine.numerical.KahanSum;
 
 import java.util.function.DoubleUnaryOperator;
 import java.util.Random;
@@ -140,6 +142,27 @@ public final class Main {
             PathFinder.Search a2 = PathFinder.aStar(grid, src, dst, cost, v -> Geo.chordKm(gxyz, v, dst) * withFee, null);
             System.out.printf("%-6s -> %-6s cost %.2f | settled: Dijkstra %d, A* fuel-only %d, A* fuel+fee %d%n",
                     q[0], q[1], dj.cost(), dj.settled(), a1.settled(), a2.settled());
+        }
+
+        // ---- Step 5.5: what the model produces ----
+        Graph lk = NetworkFactory.sriLanka();
+        int colombo = lk.indexOf("Colombo"), jaffna = lk.indexOf("Jaffna");
+        System.out.println("\nSri Lanka network: V=" + lk.vertexCount() + " E=" + lk.edgeCount());
+
+        for (double dep : new double[]{8.5, 3.0, 12.0}) {
+            double[] w = new double[lk.edgeCount()];
+            for (int i = 0; i < w.length; i++) w[i] = CostFunctions.evaluate(lk.edge(i), dep, market).total();
+            PathFinder.Search best = PathFinder.dijkstra(lk, colombo, jaffna, e -> w[e.id()], null);
+
+            KahanSum fuel = new KahanSum(), risk = new KahanSum(), fee = new KahanSum(), km2 = new KahanSum();
+            StringBuilder path = new StringBuilder("Colombo");
+            for (Edge e : best.path()) {
+                CostFunctions.EdgeCost c = CostFunctions.evaluate(e, dep, market);
+                fuel.add(c.fuel()); risk.add(c.risk()); fee.add(c.fee()); km2.add(e.distanceKm());
+                path.append(" -> ").append(lk.vertex(e.to()).name());
+            }
+            System.out.printf("dep %5.2f  %s  %.1f km%n   fuel %,.0f  risk %,.0f  fee %,.0f  total %,.0f%n",
+                    dep, path, km2.value(), fuel.value(), risk.value(), fee.value(), best.cost());
         }
     }
 
