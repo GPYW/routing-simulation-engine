@@ -8,6 +8,7 @@ import com.uom.engine.discrete.Geo;
 import com.uom.engine.discrete.AccessPolicy;
 import com.uom.engine.numerical.NumericalSolver;
 import com.uom.engine.numerical.ErrorAnalysis;
+import com.uom.engine.numerical.CostFunctions;
 
 import java.util.function.DoubleUnaryOperator;
 import java.util.Random;
@@ -77,56 +78,62 @@ public final class Main {
         PathFinder.Search bad = PathFinder.aStar(grid, from, to, km, v -> 5 * Geo.chordKm(gxyz, v, to), null);
         System.out.printf("5x heuristic N0_0 -> N29_29: cost %.4f, settled %d%n", bad.cost(), bad.settled());
 
-                // ---- Step 4.1: numerical integration ----
-        DoubleUnaryOperator traffic = t -> -t * t + 4 * t + 2;     // the starter-code curve
-        System.out.printf("%nExact 56/3          = %.10f%n", 56.0 / 3);
-        for (int n : new int[]{2, 4, 100}) {
-            System.out.printf("n=%3d  Simpson = %.10f   Trapezoid = %.10f%n", n,
-                    NumericalSolver.simpson(traffic, 0, 4, n), NumericalSolver.trapezoid(traffic, 0, 4, n));
-        }
-        System.out.printf("Cubic x^3-2x+1 on [0,2], n=2: Simpson = %.10f (exact 2)%n",
-                NumericalSolver.simpson(t -> t * t * t - 2 * t + 1, 0, 2, 2));
+        //         // ---- Step 4.1: numerical integration ----
+        // DoubleUnaryOperator traffic = t -> -t * t + 4 * t + 2;     // the starter-code curve
+        // System.out.printf("%nExact 56/3          = %.10f%n", 56.0 / 3);
+        // for (int n : new int[]{2, 4, 100}) {
+        //     System.out.printf("n=%3d  Simpson = %.10f   Trapezoid = %.10f%n", n,
+        //             NumericalSolver.simpson(traffic, 0, 4, n), NumericalSolver.trapezoid(traffic, 0, 4, n));
+        // }
+        // System.out.printf("Cubic x^3-2x+1 on [0,2], n=2: Simpson = %.10f (exact 2)%n",
+        //         NumericalSolver.simpson(t -> t * t * t - 2 * t + 1, 0, 2, 2));
 
-        System.out.println("sin x on [0, pi] (exact 2):");
-        double prevT = Double.NaN, prevS = Double.NaN;
-        for (int n = 4; n <= 64; n *= 2) {
-            double eT = Math.abs(NumericalSolver.trapezoid(Math::sin, 0, Math.PI, n) - 2);
-            double eS = Math.abs(NumericalSolver.simpson(Math::sin, 0, Math.PI, n) - 2);
-            System.out.printf("  n=%2d  trapezoid error %.2e%s   Simpson error %.2e%s%n", n,
-                    eT, Double.isNaN(prevT) ? "         " : String.format(" (÷%.1f)", prevT / eT),
-                    eS, Double.isNaN(prevS) ? "" : String.format(" (÷%.1f)", prevS / eS));
-            prevT = eT;
-            prevS = eS;
-        }
+        // System.out.println("sin x on [0, pi] (exact 2):");
+        // double prevT = Double.NaN, prevS = Double.NaN;
+        // for (int n = 4; n <= 64; n *= 2) {
+        //     double eT = Math.abs(NumericalSolver.trapezoid(Math::sin, 0, Math.PI, n) - 2);
+        //     double eS = Math.abs(NumericalSolver.simpson(Math::sin, 0, Math.PI, n) - 2);
+        //     System.out.printf("  n=%2d  trapezoid error %.2e%s   Simpson error %.2e%s%n", n,
+        //             eT, Double.isNaN(prevT) ? "         " : String.format(" (÷%.1f)", prevT / eT),
+        //             eS, Double.isNaN(prevS) ? "" : String.format(" (÷%.1f)", prevS / eS));
+        //     prevT = eT;
+        //     prevS = eS;
+        // }
 
-        // ---- Step 4.2: root finding ----
-        System.out.println("\nsqrt(2), plain Newton:  "
-                + NumericalSolver.newtonRaphson(t -> t * t - 2, t -> 2 * t, 1, 1e-15, 50));
+        // // ---- Step 4.2: root finding ----
+        // System.out.println("\nsqrt(2), plain Newton:  "
+        //         + NumericalSolver.newtonRaphson(t -> t * t - 2, t -> 2 * t, 1, 1e-15, 50));
 
-        DoubleUnaryOperator cbrt  = t -> Math.cbrt(t - 1);
-        DoubleUnaryOperator dcbrt = t -> 1 / (3 * Math.cbrt((t - 1) * (t - 1)));
-        System.out.println("cbrt(x-1), plain:       " + NumericalSolver.newtonRaphson(cbrt, dcbrt, 1.5, 1e-12, 50));
-        System.out.println("cbrt(x-1), safeguarded: " + NumericalSolver.safeguardedNewton(cbrt, dcbrt, 0, 3, 1e-12, 200));
-        System.out.println("sqrt(2), safeguarded:   "
-                + NumericalSolver.safeguardedNewton(t -> t * t - 2, t -> 2 * t, 0, 2, 1e-15, 50));
-        System.out.println("x^2+1, plain:           " + NumericalSolver.newtonRaphson(t -> t * t + 1, t -> 2 * t, 0, 1e-12, 50));
-        try {
-            NumericalSolver.safeguardedNewton(t -> t * t + 1, t -> 2 * t, -1, 1, 1e-12, 50);
-        } catch (IllegalArgumentException e) {
-            System.out.println("x^2+1, safeguarded:     " + e.getMessage());
-        }
+        // DoubleUnaryOperator cbrt  = t -> Math.cbrt(t - 1);
+        // DoubleUnaryOperator dcbrt = t -> 1 / (3 * Math.cbrt((t - 1) * (t - 1)));
+        // System.out.println("cbrt(x-1), plain:       " + NumericalSolver.newtonRaphson(cbrt, dcbrt, 1.5, 1e-12, 50));
+        // System.out.println("cbrt(x-1), safeguarded: " + NumericalSolver.safeguardedNewton(cbrt, dcbrt, 0, 3, 1e-12, 200));
+        // System.out.println("sqrt(2), safeguarded:   "
+        //         + NumericalSolver.safeguardedNewton(t -> t * t - 2, t -> 2 * t, 0, 2, 1e-15, 50));
+        // System.out.println("x^2+1, plain:           " + NumericalSolver.newtonRaphson(t -> t * t + 1, t -> 2 * t, 0, 1e-12, 50));
+        // try {
+        //     NumericalSolver.safeguardedNewton(t -> t * t + 1, t -> 2 * t, -1, 1, 1e-12, 50);
+        // } catch (IllegalArgumentException e) {
+        //     System.out.println("x^2+1, safeguarded:     " + e.getMessage());
+        // }
 
-        // ---- Step 4.3: tolerance and floating-point limits ----
-        System.out.println("\n0.1 + 0.2 = " + (0.1 + 0.2) + "   == 0.3? " + (0.1 + 0.2 == 0.3));
-        for (double v : new double[]{0.05, 1, 1000, 50000, 1e15}) {
-            System.out.printf("ulp(%-7s) = %.3e%n", v, Math.ulp(v));
+        // // ---- Step 4.3: tolerance and floating-point limits ----
+        // System.out.println("\n0.1 + 0.2 = " + (0.1 + 0.2) + "   == 0.3? " + (0.1 + 0.2 == 0.3));
+        // for (double v : new double[]{0.05, 1, 1000, 50000, 1e15}) {
+        //     System.out.printf("ulp(%-7s) = %.3e%n", v, Math.ulp(v));
+        // }
+        // // Ask for impossible precision: the ULP floor still lets it finish
+        // System.out.println("sqrt(3e6), relTol 1e-20: "
+        //         + NumericalSolver.newtonRaphson(t -> t * t - 3e6, t -> 2 * t, 1, 1e-20, 100));
+        // // Tiny root: relative tolerance still gets it right
+        // System.out.println("sqrt(1e-14), relTol 1e-10: "
+        //         + NumericalSolver.newtonRaphson(t -> t * t - 1e-14, t -> 2 * t, 1, 1e-10, 100));
+
+           // ---- Step 5.1: time profiles ----
+        System.out.println("\n hour   congestion g   night factor");
+        for (double h : new double[]{0, 2, 3, 7.5, 8.5, 9.5, 12, 17.5, 23, 25}) {
+            System.out.printf("%5.1f   %10.3f   %12.3f%n", h, CostFunctions.congestion(h), CostFunctions.nightFactor(h));
         }
-        // Ask for impossible precision: the ULP floor still lets it finish
-        System.out.println("sqrt(3e6), relTol 1e-20: "
-                + NumericalSolver.newtonRaphson(t -> t * t - 3e6, t -> 2 * t, 1, 1e-20, 100));
-        // Tiny root: relative tolerance still gets it right
-        System.out.println("sqrt(1e-14), relTol 1e-10: "
-                + NumericalSolver.newtonRaphson(t -> t * t - 1e-14, t -> 2 * t, 1, 1e-10, 100));
     }
 
      private static Graph buildGrid(int size) {
