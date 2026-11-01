@@ -101,6 +101,23 @@ public final class Main {
         CostFunctions.EdgeCost cheapFuel = CostFunctions.evaluate(expressway, 8.0, market, 0);
         CostFunctions.EdgeCost dearFuel  = CostFunctions.evaluate(expressway, 8.0, market.withFuelPrice(500), 0);
         System.out.printf("Fuel at 350 -> %.0f, at 500 -> %.0f%n", cheapFuel.fuel(), dearFuel.fuel());
+
+        // ---- Step 5.3: fee equilibrium ----
+        System.out.println();
+        for (RoadClass rc : RoadClass.values()) {
+            for (double hour : new double[]{3, 8.5, 17.5}) {
+                NumericalSolver.RootResult r = CostFunctions.equilibriumFeePerKm(rc, hour);
+                System.out.printf("%-10s %5.2fh  p* = %7.4f per km  (%d Newton steps, %d bisections)%n",
+                        rc, hour, r.root(), r.iterations(), r.bisectionSteps());
+            }
+        }
+        for (Edge e : List.of(expressway, highway)) {
+            for (double hour : new double[]{3, 8, 12}) {
+                CostFunctions.EdgeCost c = CostFunctions.evaluate(e, hour, market);
+                System.out.printf("%-10s dep %5.2f  fuel %5.0f  risk %6.0f  fee %5.0f  total %6.0f%n",
+                        e.roadClass(), hour, c.fuel(), c.risk(), c.fee(), c.total());
+            }
+        }
     }
 
      private static Graph buildGrid(int size) {

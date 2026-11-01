@@ -2,8 +2,13 @@ package com.uom.engine.numerical;
 
 import com.uom.engine.discrete.Edge;
 import com.uom.engine.discrete.RoadClass;
+import java.util.function.DoubleUnaryOperator;
 
 public final class CostFunctions {
+
+    // Fee market constants
+    static final double DEMAND_SENSITIVITY = 0.02;   // k: demand falls by e^{-k p}
+    static final double SUPPLY_SCALE = 50.0;         // p0: supply reaches 63% of capacity at p = p0
 
     private CostFunctions() { }
 
@@ -58,6 +63,32 @@ public final class CostFunctions {
     public static EdgeCost evaluate(Edge e, double departHour, MarketConditions m, double feePerKm) {
         return price(e, physics(e, departHour, m.intervals()), m, feePerKm);
     }
-    // 5.3 adds: equilibriumFeePerKm()
+    
+     /** Evaluate all three parts for an edge, solving the fee rate for this hour. */
+    public static EdgeCost evaluate(Edge e, double departHour, MarketConditions m) {
+        return evaluate(e, departHour, m, equilibriumFeePerKm(e.roadClass(), departHour).root());
+    }
+
+    /**
+     * Equilibrium fee per km: the price p* where demand meets supply.
+     *   Demand D(p) = D0 x g(T) x e^{-k p}        (fewer shippers as the fee rises)
+     *   Supply S(p) = C x (1 - e^{-p / p0})       (more capacity released as the fee rises)
+     *   f(p) = D(p) - S(p),   f'(p) = -k D(p) - (C / p0) e^{-p / p0}
+     * f(0) = D0 g > 0, f(p) -> -C < 0, and f' < 0 everywhere, so there is exactly one root.
+     */
+    public static NumericalSolver.RootResult equilibriumFeePerKm(RoadClass rc, double hour) {
+        double d0 = rc.baseDemand() * congestion(hour);
+        double cap = rc.capacity();
+        double k = DEMAND_SENSITIVITY, p0 = SUPPLY_SCALE;
+        DoubleUnaryOperator f  = p -> d0 * Math.exp(-k * p) - cap * (1 - Math.exp(-p / p0));
+        DoubleUnaryOperator df = p -> -k * d0 * Math.exp(-k * p) - (cap / p0) * Math.exp(-p / p0);
+
+        double hi = p0;
+        while (f.applyAsDouble(hi) > 0) hi *= 2;    // grow the bracket until f changes sign
+        NumericalSolver.RootResult r = NumericalSolver.safeguardedNewton(f, df, 0.0, hi, 1e-12, 100);
+        if (!r.converged()) throw new ArithmeticException("Fee equilibrium did not converge for " + rc + " at " + hour);
+        return r;
+    }
+
     // 5.4 adds: lowerBoundPerKm()
 }
