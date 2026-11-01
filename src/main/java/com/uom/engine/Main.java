@@ -118,6 +118,29 @@ public final class Main {
                         e.roadClass(), hour, c.fuel(), c.risk(), c.fee(), c.total());
             }
         }
+
+        // ---- Step 5.4: A* lower bound with money weights ----
+        double hour = 8.0;
+        double minFee = Double.POSITIVE_INFINITY;
+        for (RoadClass rc : RoadClass.values()) {
+            minFee = Math.min(minFee, CostFunctions.equilibriumFeePerKm(rc, hour).root());
+        }
+        double fuelOnly = CostFunctions.lowerBoundPerKm(market, 0);
+        double withFee  = CostFunctions.lowerBoundPerKm(market, minFee);
+        System.out.printf("%nBound per km at 08:00: fuel-only %.2f, fuel+fee %.2f%n", fuelOnly, withFee);
+
+        double[] money = new double[grid.edgeCount()];             // weight of every grid edge at 08:00
+        for (int i = 0; i < money.length; i++) money[i] = CostFunctions.evaluate(grid.edge(i), hour, market).total();
+        PathFinder.EdgeWeight cost = e -> money[e.id()];
+
+        for (String[] q : new String[][]{{"N15_0", "N15_29"}, {"N0_0", "N10_12"}, {"N5_3", "N22_25"}, {"N0_0", "N29_29"}}) {
+            int src = grid.indexOf(q[0]), dst = grid.indexOf(q[1]);
+            PathFinder.Search dj = PathFinder.dijkstra(grid, src, dst, cost, null);
+            PathFinder.Search a1 = PathFinder.aStar(grid, src, dst, cost, v -> Geo.chordKm(gxyz, v, dst) * fuelOnly, null);
+            PathFinder.Search a2 = PathFinder.aStar(grid, src, dst, cost, v -> Geo.chordKm(gxyz, v, dst) * withFee, null);
+            System.out.printf("%-6s -> %-6s cost %.2f | settled: Dijkstra %d, A* fuel-only %d, A* fuel+fee %d%n",
+                    q[0], q[1], dj.cost(), dj.settled(), a1.settled(), a2.settled());
+        }
     }
 
      private static Graph buildGrid(int size) {
