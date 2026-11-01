@@ -7,6 +7,7 @@ import com.uom.engine.discrete.PathFinder;
 import com.uom.engine.discrete.Geo;
 import com.uom.engine.discrete.AccessPolicy;
 import com.uom.engine.numerical.NumericalSolver;
+import com.uom.engine.numerical.ErrorAnalysis;
 
 import java.util.function.DoubleUnaryOperator;
 import java.util.Random;
@@ -19,7 +20,7 @@ public final class Main {
         String mode = args.length > 0 ? args[0] : "server";
         switch (mode) {
             case "demo"   -> demo();                 // <- changed: was notYet("demo", 6)
-            case "errors" -> notYet("errors", 4);
+            case "errors" -> ErrorAnalysis.run();
             case "bench"  -> notYet("bench", 8);
             case "test"   -> notYet("test", 9);
             case "server" -> notYet("server", 7);
@@ -114,6 +115,18 @@ public final class Main {
         } catch (IllegalArgumentException e) {
             System.out.println("x^2+1, safeguarded:     " + e.getMessage());
         }
+
+        // ---- Step 4.3: tolerance and floating-point limits ----
+        System.out.println("\n0.1 + 0.2 = " + (0.1 + 0.2) + "   == 0.3? " + (0.1 + 0.2 == 0.3));
+        for (double v : new double[]{0.05, 1, 1000, 50000, 1e15}) {
+            System.out.printf("ulp(%-7s) = %.3e%n", v, Math.ulp(v));
+        }
+        // Ask for impossible precision: the ULP floor still lets it finish
+        System.out.println("sqrt(3e6), relTol 1e-20: "
+                + NumericalSolver.newtonRaphson(t -> t * t - 3e6, t -> 2 * t, 1, 1e-20, 100));
+        // Tiny root: relative tolerance still gets it right
+        System.out.println("sqrt(1e-14), relTol 1e-10: "
+                + NumericalSolver.newtonRaphson(t -> t * t - 1e-14, t -> 2 * t, 1, 1e-10, 100));
     }
 
      private static Graph buildGrid(int size) {
