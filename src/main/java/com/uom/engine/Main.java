@@ -15,6 +15,7 @@ import com.uom.engine.numerical.KahanSum;
 import com.uom.engine.model.RouteQuery;
 import com.uom.engine.model.RouteResult;
 import com.uom.engine.model.RoutingEngine;
+import com.uom.engine.api.RouteServer;
 
 import java.util.Set;
 import java.util.concurrent.*;
@@ -35,7 +36,7 @@ public final class Main {
             case "errors" -> ErrorAnalysis.run();
             case "bench"  -> notYet("bench", 8);
             case "test"   -> notYet("test", 9);
-            case "server" -> notYet("server", 7);
+            case "server" -> server(args); 
             default       -> System.err.println("Unknown mode " + mode + " (use server|demo|errors|bench|test)");
         }
     }
@@ -267,6 +268,17 @@ public final class Main {
         pool.shutdown();
         pool.awaitTermination(1, TimeUnit.MINUTES);
         return (System.nanoTime() - t0) / 1_000_000;
+    }
+
+    private static void server(String[] args) throws Exception {
+        int port = args.length > 1 ? Integer.parseInt(args[1]) : 8080;
+        int threads = args.length > 2 ? Integer.parseInt(args[2]) : Runtime.getRuntime().availableProcessors();
+        RoutingEngine engine = new RoutingEngine(NetworkFactory.sriLanka(), MarketConditions.defaults());
+        RouteServer server = new RouteServer(engine, port, threads);
+        Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
+        server.start();
+        System.out.printf("Routing engine listening on http://localhost:%d with %d worker threads%n", port, threads);
+        System.out.printf("Try: http://localhost:%d/route?origin=Colombo&destination=Jaffna&depart=8.5%n", port);
     }
 
     private static void notYet(String mode, int step) {
