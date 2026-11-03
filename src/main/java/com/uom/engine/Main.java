@@ -17,6 +17,7 @@ import com.uom.engine.model.RouteResult;
 import com.uom.engine.model.RoutingEngine;
 import com.uom.engine.api.RouteServer;
 import com.uom.engine.bench.Benchmark;
+import com.uom.engine.bench.SelfTest;
 
 import java.util.Set;
 import java.util.concurrent.*;
@@ -36,7 +37,7 @@ public final class Main {
             case "demo"   -> demo();
             case "errors" -> ErrorAnalysis.run();
             case "bench"  -> Benchmark.run(); 
-            case "test"   -> notYet("test", 9);
+            case "test"   -> { if (!SelfTest.run()) System.exit(1); }
             case "server" -> server(args); 
             default       -> System.err.println("Unknown mode " + mode + " (use server|demo|errors|bench|test)");
         }
