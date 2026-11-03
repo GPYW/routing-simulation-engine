@@ -16,6 +16,7 @@ import com.uom.engine.model.RouteQuery;
 import com.uom.engine.model.RouteResult;
 import com.uom.engine.model.RoutingEngine;
 import com.uom.engine.api.RouteServer;
+import com.uom.engine.bench.Benchmark;
 
 import java.util.Set;
 import java.util.concurrent.*;
@@ -32,9 +33,9 @@ public final class Main {
     public static void main(String[] args) throws Exception {
         String mode = args.length > 0 ? args[0] : "server";
         switch (mode) {
-            case "demo"   -> demo();                 // <- changed: was notYet("demo", 6)
+            case "demo"   -> demo();
             case "errors" -> ErrorAnalysis.run();
-            case "bench"  -> notYet("bench", 8);
+            case "bench"  -> Benchmark.run(); 
             case "test"   -> notYet("test", 9);
             case "server" -> server(args); 
             default       -> System.err.println("Unknown mode " + mode + " (use server|demo|errors|bench|test)");
