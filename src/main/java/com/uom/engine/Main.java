@@ -24,6 +24,8 @@ import java.util.Random;
 import java.util.BitSet;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 public final class Main {
     public static void main(String[] args) throws Exception {
@@ -87,90 +89,7 @@ public final class Main {
         PathFinder.Search bad = PathFinder.aStar(grid, from, to, km, v -> 5 * Geo.chordKm(gxyz, v, to), null);
         System.out.printf("5x heuristic N0_0 -> N29_29: cost %.4f, settled %d%n", bad.cost(), bad.settled());
 
-        //    // ---- Step 5.1: time profiles ----
-        // System.out.println("\n hour   congestion g   night factor");
-        // for (double h : new double[]{0, 2, 3, 7.5, 8.5, 9.5, 12, 17.5, 23, 25}) {
-        //     System.out.printf("%5.1f   %10.3f   %12.3f%n", h, CostFunctions.congestion(h), CostFunctions.nightFactor(h));
-        // }
-
-        // // ---- Step 5.2: fuel and risk integrals ----
-        // MarketConditions market = MarketConditions.defaults();
-        // System.out.println("\n" + market);
-        // Edge expressway = g.edge(3);      // Gampaha -> Kandy, 80 km EXPRESSWAY (from Step 1)
-        // Edge highway    = g.edge(2);      // Gampaha -> Kandy, 88.2 km HIGHWAY
-        // for (Edge e : List.of(expressway, highway)) {
-        //     for (double hour : new double[]{3.0, 8.0, 12.0}) {
-        //         CostFunctions.EdgePhysics p = CostFunctions.physics(e, hour, market.intervals());
-        //         CostFunctions.EdgeCost c = CostFunctions.price(e, p, market, 0.0);
-        //         System.out.printf("%-10s %5.1f km  dep %5.2f  litres %6.2f  hazard %.6f  fuel %5.0f  risk %6.0f  total %6.0f%n",
-        //                 e.roadClass(), e.distanceKm(), hour, p.litres(), p.hazard(), c.fuel(), c.risk(), c.total());
-        //     }
-        // }
-        // CostFunctions.EdgeCost cheapFuel = CostFunctions.evaluate(expressway, 8.0, market, 0);
-        // CostFunctions.EdgeCost dearFuel  = CostFunctions.evaluate(expressway, 8.0, market.withFuelPrice(500), 0);
-        // System.out.printf("Fuel at 350 -> %.0f, at 500 -> %.0f%n", cheapFuel.fuel(), dearFuel.fuel());
-
-        // // ---- Step 5.3: fee equilibrium ----
-        // System.out.println();
-        // for (RoadClass rc : RoadClass.values()) {
-        //     for (double hour : new double[]{3, 8.5, 17.5}) {
-        //         NumericalSolver.RootResult r = CostFunctions.equilibriumFeePerKm(rc, hour);
-        //         System.out.printf("%-10s %5.2fh  p* = %7.4f per km  (%d Newton steps, %d bisections)%n",
-        //                 rc, hour, r.root(), r.iterations(), r.bisectionSteps());
-        //     }
-        // }
-        // for (Edge e : List.of(expressway, highway)) {
-        //     for (double hour : new double[]{3, 8, 12}) {
-        //         CostFunctions.EdgeCost c = CostFunctions.evaluate(e, hour, market);
-        //         System.out.printf("%-10s dep %5.2f  fuel %5.0f  risk %6.0f  fee %5.0f  total %6.0f%n",
-        //                 e.roadClass(), hour, c.fuel(), c.risk(), c.fee(), c.total());
-        //     }
-        // }
-
-        // // ---- Step 5.4: A* lower bound with money weights ----
-        // double hour = 8.0;
-        // double minFee = Double.POSITIVE_INFINITY;
-        // for (RoadClass rc : RoadClass.values()) {
-        //     minFee = Math.min(minFee, CostFunctions.equilibriumFeePerKm(rc, hour).root());
-        // }
-        // double fuelOnly = CostFunctions.lowerBoundPerKm(market, 0);
-        // double withFee  = CostFunctions.lowerBoundPerKm(market, minFee);
-        // System.out.printf("%nBound per km at 08:00: fuel-only %.2f, fuel+fee %.2f%n", fuelOnly, withFee);
-
-        // double[] money = new double[grid.edgeCount()];             // weight of every grid edge at 08:00
-        // for (int i = 0; i < money.length; i++) money[i] = CostFunctions.evaluate(grid.edge(i), hour, market).total();
-        // PathFinder.EdgeWeight cost = e -> money[e.id()];
-
-        // for (String[] q : new String[][]{{"N15_0", "N15_29"}, {"N0_0", "N10_12"}, {"N5_3", "N22_25"}, {"N0_0", "N29_29"}}) {
-        //     int src = grid.indexOf(q[0]), dst = grid.indexOf(q[1]);
-        //     PathFinder.Search dj = PathFinder.dijkstra(grid, src, dst, cost, null);
-        //     PathFinder.Search a1 = PathFinder.aStar(grid, src, dst, cost, v -> Geo.chordKm(gxyz, v, dst) * fuelOnly, null);
-        //     PathFinder.Search a2 = PathFinder.aStar(grid, src, dst, cost, v -> Geo.chordKm(gxyz, v, dst) * withFee, null);
-        //     System.out.printf("%-6s -> %-6s cost %.2f | settled: Dijkstra %d, A* fuel-only %d, A* fuel+fee %d%n",
-        //             q[0], q[1], dj.cost(), dj.settled(), a1.settled(), a2.settled());
-        // }
-
-        // // ---- Step 5.5: what the model produces ----
-        // Graph lk = NetworkFactory.sriLanka();
-        // int colombo = lk.indexOf("Colombo"), jaffna = lk.indexOf("Jaffna");
-        // System.out.println("\nSri Lanka network: V=" + lk.vertexCount() + " E=" + lk.edgeCount());
-
-        // for (double dep : new double[]{8.5, 3.0, 12.0}) {
-        //     double[] w = new double[lk.edgeCount()];
-        //     for (int i = 0; i < w.length; i++) w[i] = CostFunctions.evaluate(lk.edge(i), dep, market).total();
-        //     PathFinder.Search best = PathFinder.dijkstra(lk, colombo, jaffna, e -> w[e.id()], null);
-
-        //     KahanSum fuel = new KahanSum(), risk = new KahanSum(), fee = new KahanSum(), km2 = new KahanSum();
-        //     StringBuilder path = new StringBuilder("Colombo");
-        //     for (Edge e : best.path()) {
-        //         CostFunctions.EdgeCost c = CostFunctions.evaluate(e, dep, market);
-        //         fuel.add(c.fuel()); risk.add(c.risk()); fee.add(c.fee()); km2.add(e.distanceKm());
-        //         path.append(" -> ").append(lk.vertex(e.to()).name());
-        //     }
-        //     System.out.printf("dep %5.2f  %s  %.1f km%n   fuel %,.0f  risk %,.0f  fee %,.0f  total %,.0f%n",
-        //             dep, path, km2.value(), fuel.value(), risk.value(), fee.value(), best.cost());
-        // }
-
+        
         // ---- Step 6.1: the engine and its lock ----
         RoutingEngine engine = new RoutingEngine(NetworkFactory.sriLanka(), MarketConditions.defaults());
         RouteResult rr = engine.route(RouteQuery.of("Colombo", "Jaffna", 8.5));
@@ -220,6 +139,61 @@ public final class Main {
         } finally {
             pool.shutdown();
         }
+
+        // ---- Step 6.2: measuring the two-level cache ----
+        RoutingEngine big = new RoutingEngine(NetworkFactory.randomGrid(100_000, 7), MarketConditions.defaults());
+        big.setLogQueries(false);
+        String cacheFrom = NetworkFactory.name(10, 10), cacheTo = NetworkFactory.name(40, 45);
+        System.out.println();
+        timeQuery(big, "1. cold (bucket 08:00 empty)", cacheFrom, cacheTo, 8.0);
+        timeQuery(big, "2. warm, same bucket", cacheFrom, cacheTo, 8.0);
+        timeQuery(big, "3. 08:10 -> same 08:00 bucket", cacheFrom, cacheTo, 8.17);
+        timeQuery(big, "4. new bucket 08:15", cacheFrom, cacheTo, 8.25);
+        big.updateMarket(big.market().withFuelPrice(400));
+        timeQuery(big, "5. after fuel price change", cacheFrom, cacheTo, 8.0);
+        big.addRoad(NetworkFactory.name(0, 0), NetworkFactory.name(0, 5), 80, RoadClass.HIGHWAY);
+        timeQuery(big, "6. after addRoad", cacheFrom, cacheTo, 8.0);
+
+        { // ---- Step 6.4: why Metrics uses LongAdder ----
+            try {
+                AtomicLong atomic = new AtomicLong();
+                LongAdder adder = new LongAdder();
+                long tPlain  = hammer(() -> plainCounter++);
+                long tAtomic = hammer(atomic::incrementAndGet);
+                long tAdder  = hammer(adder::increment);
+                System.out.printf("%nExpected 40,000,000%n");
+                System.out.printf("plain long: %,d  (%d ms)%n", plainCounter, tPlain);
+                System.out.printf("AtomicLong: %,d  (%d ms)%n", atomic.get(), tAtomic);
+                System.out.printf("LongAdder:  %,d  (%d ms)%n", adder.sum(), tAdder);
+            } catch (Exception ex) {
+                System.out.println("Counter test failed: " + ex);
+            }
+        }
+
+        { // ---- Step 6.5: result breakdown and road validation ----
+            RoutingEngine eng = new RoutingEngine(NetworkFactory.sriLanka(), MarketConditions.defaults());
+            eng.setLogQueries(false);
+            RouteResult res = eng.route(RouteQuery.of("Colombo", "Jaffna", 8.5));
+            System.out.println();
+            for (RouteResult.Leg l : res.legs()) {
+                System.out.printf("%-12s -> %-12s %-10s %6.1f km  fuel %,7.0f  risk %,7.0f  fee %,7.0f  leg %,8.0f%n",
+                        l.from(), l.to(), l.roadClass(), l.km(), l.fuel(), l.risk(), l.fee(), l.cost());
+            }
+            System.out.printf("total %,.2f  |  %.1f km  |  %.2f h  |  settled %d of %d%n",
+                    res.totalCost(), res.totalKm(), res.totalHours(), res.verticesSettled(), res.graphVertices());
+
+            try {
+                eng.addRoad("Colombo", "Kurunegala", 60, RoadClass.EXPRESSWAY);         // impossible: too short
+            } catch (IllegalArgumentException ex) {
+                System.out.println("Rejected: " + ex.getMessage());
+            }
+            eng.addRoad("Colombo", "Kurunegala", 95.9, RoadClass.EXPRESSWAY);         // realistic: 1.15 x straight line
+            RouteResult after = eng.route(RouteQuery.of("Colombo", "Jaffna", 8.5));
+            StringBuilder path = new StringBuilder(after.origin());
+            for (RouteResult.Leg l : after.legs()) path.append(" -> ").append(l.to());
+            System.out.printf("With new expressway: %s%n   cost %,.0f, %.1f km, graph now has %d edges%n",
+                    path, after.totalCost(), after.totalKm(), after.graphEdges());
+        }
     }
 
      private static Graph buildGrid(int size) {
@@ -267,6 +241,32 @@ public final class Main {
         } catch (IllegalArgumentException e) {                // general second
             System.out.println(label + "400 BAD REQUEST - " + e.getMessage());
         }
+    }
+
+    private static void timeQuery(RoutingEngine e, String label, String from, String to, double hour) {
+        long t0 = System.nanoTime();
+        RouteResult r = e.route(RouteQuery.of(from, to, hour));
+        System.out.printf("%-32s %8.1f ms  bucket %.2f  cost %,.0f%n",
+                label, (System.nanoTime() - t0) / 1e6, r.departHour(), r.totalCost());
+    }
+
+    private static long plainCounter = 0;
+
+    /** 8 threads each increment a counter 5 million times; returns elapsed ms. */
+    private static long hammer(Runnable increment) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        CountDownLatch go = new CountDownLatch(1);
+        for (int t = 0; t < 8; t++) {
+            pool.submit(() -> {
+                try { go.await(); } catch (InterruptedException ignored) { }
+                for (int i = 0; i < 5_000_000; i++) increment.run();
+            });
+        }
+        long t0 = System.nanoTime();
+        go.countDown();
+        pool.shutdown();
+        pool.awaitTermination(1, TimeUnit.MINUTES);
+        return (System.nanoTime() - t0) / 1_000_000;
     }
 
     private static void notYet(String mode, int step) {
